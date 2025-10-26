@@ -30,4 +30,4 @@ jobs:
           -Dsonar.organization=<TON_ORG_KEY> \
           -Dsonar.host.url=https://sonarcloud.io \
           -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-          --file ./simple-api/pom.xml
+          --file ./backend/pom.xml
