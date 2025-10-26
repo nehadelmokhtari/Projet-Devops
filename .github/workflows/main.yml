@@ -22,7 +22,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Build and test with Maven
-        run: mvn clean verify --file ../backend/pom.xml
+        run: mvn clean verify --file ./backend/pom.xml
 
       - name: SonarCloud Analysis
         run: mvn -B verify sonar:sonar \
