@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://my-postgres:5432/mydb
+    username: admin
+    password: admin
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          lob:
+            non_contextual_creation: true
+    hibernate:
+      ddl-auto: none
+    generate-ddl: false
+    open-in-view: true
+    show-sql: true
+
+management:
+  server:
+    add-application-context-header: false
+  endpoints:
+    web:
+      exposure:
+        include: health,info,env,metrics,beans,configprops

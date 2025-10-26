@@ -1,0 +1,46 @@
+services:
+  initdb:
+    build: ./initdb
+    container_name: my-database
+    environment:
+      POSTGRES_DB: db
+      POSTGRES_USER: usr
+      POSTGRES_PASSWORD: pwd
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: always
+
+  backend:
+    build: ./backend
+    container_name: backend-api
+    depends_on:
+      - initdb
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://initdb:5432/db
+      SPRING_DATASOURCE_USERNAME: usr
+      SPRING_DATASOURCE_PASSWORD: pwd
+      SERVER_PORT: 8080
+    networks:
+      - app-network
+    expose:
+      - "8080"
+    restart: on-failure
+
+  httpd:
+    build: ./httpd
+    container_name: httpd-proxy
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+networks:
+  app-network:
+
+volumes:
+  postgres_data:
