@@ -1,6 +1,9 @@
-# Workflow CI : build et tests automatiques du backend et déploiement des images Docker
+# ===============================================================
+# Workflow CI : Build + Tests automatiques + Analyse SonarCloud
+# + Build & Push des images Docker
+# ===============================================================
 
-name: CI devops 2025
+name: CI DevOps 2025
 
 on:
   push:
@@ -21,16 +24,22 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '21'        # Installe Java 21
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Build and test with Maven
-        run: mvn clean verify        # Compile et lance les tests
+        run: mvn clean verify
         working-directory: backend   # Le pom.xml est dans le dossier backend
 
-      # Run SonarCloud analysis (requires secret SONAR_TOKEN)
+      # Analyse SonarCloud (nécessite le secret SONAR_TOKEN)
       - name: Run SonarCloud analysis
-        run: mvn -B verify sonar:sonar -Dsonar.projectKey=Project-Docker -Dsonar.organization=ansible-course -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=${{ secrets.SONAR_TOKEN }} --file ./backend/pom.xml
+        run: |
+          mvn -B verify sonar:sonar \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.organization=${{ secrets.SONAR_ORG_KEY }} \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            --file ./backend/pom.xml
         shell: bash
 
 
@@ -45,65 +54,63 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Prepare Docker username for tagging (prefer DOCKERHUB_USERNAME)
+      # Préparation du nom d'utilisateur Docker
       - name: Prepare Docker username
         run: |
           echo "Preparing Docker username"
-          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
-            echo "DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> $GITHUB_ENV
-            echo "Using DOCKERHUB_USERNAME secret"
+          if [ -n "${{ secrets.SECRET_NAME }}" ]; then
+            echo "DOCKER_USERNAME=${{ secrets.SECRET_NAME }}" >> $GITHUB_ENV
+            echo "Using SECRET_NAME secret"
           elif [ -n "${{ secrets.SECRET_EMAIL }}" ]; then
-            # Check if SECRET_EMAIL contains an '@' (invalid for Docker username/tag)
+            # Vérifie si SECRET_EMAIL contient un '@'
             if echo "${{ secrets.SECRET_EMAIL }}" | grep -q '@'; then
-              echo "ERROR: SECRET_EMAIL contains '@' — please set DOCKERHUB_USERNAME instead."
+              echo "ERROR: SECRET_EMAIL contains '@' — please set SECRET_NAME instead."
               exit 1
             else
               echo "DOCKER_USERNAME=${{ secrets.SECRET_EMAIL }}" >> $GITHUB_ENV
               echo "Using SECRET_EMAIL as Docker username (no @ present)"
             fi
           else
-            echo "ERROR: Set repository secret DOCKERHUB_USERNAME (preferred). If you must use SECRET_EMAIL, ensure it contains a Docker username (no '@')."
+            echo "ERROR: Set repository secret SECRET_NAME (preferred)."
             exit 1
           fi
         shell: bash
 
-      # Validate that required secrets exist before attempting login
+      # Validation des secrets requis
       - name: Validate Docker credentials
         run: |
           echo "Validating Docker credentials"
-          if [ -z "${{ secrets.SECRET_EMAIL }}" ] && [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
-            echo "ERROR: Repository secret SECRET_EMAIL or DOCKERHUB_USERNAME is not set. Add one in Settings > Secrets and variables > Actions"
+          if [ -z "${{ secrets.SECRET_NAME }}" ] && [ -z "${{ secrets.SECRET_EMAIL }}" ]; then
+            echo "ERROR: SECRET_EMAIL or SECRET_NAME is not set."
             exit 1
           fi
           if [ -z "${{ secrets.SECRET_TOKEN }}" ] && [ -z "${{ secrets.SECRET_PASSWORD }}" ]; then
-            echo "ERROR: Neither SECRET_TOKEN nor SECRET_PASSWORD is set. Add one of them in Settings > Secrets and variables > Actions"
+            echo "ERROR: Neither SECRET_TOKEN nor SECRET_PASSWORD is set."
             exit 1
           fi
           echo "Docker credentials validated"
         shell: bash
 
-      # Debug step — n'affiche pas les valeurs sensibles, seulement la présence
+      # Étape de debug (ne montre jamais les valeurs sensibles)
       - name: Debug - check secrets presence
         run: |
-          echo "DOCKERHUB_USERNAME: $( [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && echo present || echo missing )"
-          echo "SECRET_EMAIL: $( [ -n "${{ secrets.SECRET_EMAIL }}" ] && echo present || echo missing )"
-          echo "SECRET_TOKEN: $( [ -n "${{ secrets.SECRET_TOKEN }}" ] && echo present || echo missing )"
-          echo "SECRET_PASSWORD: $( [ -n "${{ secrets.SECRET_PASSWORD }}" ] && echo present || echo missing )"
-          echo "DOCKER_USERNAME (env): $( [ -n "$DOCKER_USERNAME" ] && echo present || echo missing )"
+          echo "SECRET_NAME: $( [ -n '${{ secrets.SECRET_NAME }}' ] && echo present || echo missing )"
+          echo "SECRET_EMAIL: $( [ -n '${{ secrets.SECRET_EMAIL }}' ] && echo present || echo missing )"
+          echo "SECRET_TOKEN: $( [ -n '${{ secrets.SECRET_TOKEN }}' ] && echo present || echo missing )"
+          echo "SECRET_PASSWORD: $( [ -n '${{ secrets.SECRET_PASSWORD }}' ] && echo present || echo missing )"
+          echo "DOCKER_USERNAME (env): $( [ -n \"$DOCKER_USERNAME\" ] && echo present || echo missing )"
         shell: bash
 
-      # Connexion sécurisée à Docker Hub (ou ECR si détecté)
+      # Connexion sécurisée à Docker Hub
       - name: Log in to Docker registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
-          # Use DOCKERHUB_USERNAME if present, otherwise fallback to SECRET_EMAIL
-          username: ${{ secrets.DOCKERHUB_USERNAME || secrets.SECRET_EMAIL }}
+          username: ${{ secrets.SECRET_NAME || secrets.SECRET_EMAIL }}
           password: ${{ secrets.SECRET_TOKEN || secrets.SECRET_PASSWORD }}
-          ecr: auto
           logout: true
 
       # Build et push de l’image backend
-      - name: Build image and push backend
+      - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -111,15 +118,15 @@ jobs:
           tags: ${{ env.DOCKER_USERNAME }}/tp-devops-simple-api-backend:latest
 
       # Build et push de l’image base de données
-      - name: Build image and push database
+      - name: Build and push database image
         uses: docker/build-push-action@v6
         with:
           context: ./initdb
           push: true
           tags: ${{ env.DOCKER_USERNAME }}/tp-devops-simple-api-database:latest
 
-      # Build et push de l’image httpd
-      - name: Build image and push httpd
+      # Build et push de l’image HTTPD
+      - name: Build and push httpd image
         uses: docker/build-push-action@v6
         with:
           context: ./httpd
