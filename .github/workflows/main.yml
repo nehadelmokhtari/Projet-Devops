@@ -107,13 +107,6 @@ jobs:
           echo "DOCKER_USERNAME (env): $( [ -n \"$DOCKER_USERNAME\" ] && echo present || echo missing )"
         shell: bash
 
-      # Connexion sécurisée à Docker Hub
-      - name: Log in to Docker registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.SECRET_NAME || secrets.SECRET_EMAIL }}
-          password: ${{ secrets.SECRET_TOKEN || secrets.SECRET_PASSWORD }}
-          logout: true
 
       # Build et push de l’image backend
       - name: Build and push backend image
