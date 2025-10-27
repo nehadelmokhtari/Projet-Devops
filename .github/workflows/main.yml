@@ -39,6 +39,12 @@ jobs:
             -Dsonar.organization=${{ secrets.SONAR_ORG_KEY }} \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.projectName=simple-api \
+            -Dsonar.projectVersion=1.0 \
+            -Dsonar.qualitygate.wait=true \
+            -Dsonar.scm.disabled=true \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+            -Dsonar.analysis.mode=publish \
             --file ./backend/pom.xml
         shell: bash
 
