@@ -1,0 +1,12 @@
+FROM ubuntu:24.04
+
+# Installer Ansible + SSH client
+RUN apt-get update && \
+    apt-get install -y ansible openssh-client && \
+    apt-get clean
+
+# Répertoire de travail à /ansible
+WORKDIR /ansible
+
+# Laisser Ansible s’exécuter directement
+ENTRYPOINT ["ansible-playbook"]
